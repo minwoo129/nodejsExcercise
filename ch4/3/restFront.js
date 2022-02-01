@@ -24,6 +24,7 @@ async function getUser() {
                 }
             });
             const remove = document.createElement('button');
+            remove.textContent = '삭제';
             remove.addEventListener('click', async () => {
                 try {
                     await axios.delete('/user/'+key);

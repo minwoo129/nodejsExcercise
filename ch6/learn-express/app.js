@@ -1,9 +1,16 @@
 const express = require('express');
 const path = require('path');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const dotenv = require('dotenv');
+const morgan = require('morgan');
 
+dotenv.config();
 const app = express();
 app.set('port', process.env.PORT || 3000);
 
+app.use(morgan('dev'));
+app.use('/', express.static(path.join(__dirname, 'public')))
 app.use((req, res, next) => {
     console.log('모든 요청에 다 실행됩니다.');
     next();

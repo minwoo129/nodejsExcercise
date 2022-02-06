@@ -6,8 +6,6 @@ const connect = () => {
     }
     mongoose.connect('mongodb://rmw:rmwkey0129@localhost:27017/admin', {
         dbName: 'nodejs',
-        useNewUrlParser: true,
-        useCreateIndex: true,
     }, (error) => {
         if(error) console.log('mongodb 연결 err: ', error);
         else console.log('mongodb 연결 성공');

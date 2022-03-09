@@ -6,7 +6,7 @@ const session = require('express-session');
 const nunjucks = require('nunjucks');
 const dotenv = require('dotenv');
 const connect = require('./schemas');
-const ColorHash = require('color-hash');
+const ColorHash = require('color-hash').default;
 
 dotenv.config();
 const webSocket = require('./socket');

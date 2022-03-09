@@ -1,5 +1,7 @@
 const SocketIO = require('socket.io');
 const axios = require('axios');
+const cookieParser = require('cookie-parser');
+const cookie = require('cookie-signature');
 
 module.exports = (server, app, sessionMiddleware) => {
   const io = SocketIO(server, { path: '/socket.io' });
@@ -8,6 +10,7 @@ module.exports = (server, app, sessionMiddleware) => {
   const chat = io.of('/chat');
 
   io.use((socket, next) => {
+    cookieParser(process.env.COOKIE_SECRET)(socket.request, socket.request.res, next);
     sessionMiddleware(socket.request, socket.request.res, next);
   });
 
@@ -27,8 +30,8 @@ module.exports = (server, app, sessionMiddleware) => {
       .replace(/\?.+/, '');
     socket.join(roomId);
     socket.to(roomId).emit('join', {
-        user: 'system',
-        chat: `${req.session.color}님이 입장하셨습니다.`
+      user: 'system',
+      chat: `${req.session.color}님이 입장하셨습니다.`,
     });
 
     socket.on('disconnect', () => {
@@ -36,21 +39,29 @@ module.exports = (server, app, sessionMiddleware) => {
       socket.leave(roomId);
       const currentRoom = socket.adapter.rooms[roomId];
       const userCount = currentRoom ? currentRoom.length : 0;
-      if(userCount == 0) {
-          axios.delete(`http://localhost:8005/room/${roomId}`)
+      if (userCount === 0) { // 유저가 0명이면 방 삭제
+        const signedCookie = cookie.sign(req.signedCookies['connect.sid'], process.env.COOKIE_SECRET);
+        const connectSID = `${signedCookie}`;
+        axios.delete(`http://localhost:8005/room/${roomId}`, {
+          headers: {
+            Cookie: `connect.sid=s%3A${connectSID}`
+          } 
+        })
           .then(() => {
-              console.log('방 제거 요청 성공');
+            console.log('방 제거 요청 성공');
           })
-          .catch((err) => {
-              console.error(err);
+          .catch((error) => {
+            console.error(error);
           });
+      } else {
+        socket.to(roomId).emit('exit', {
+          user: 'system',
+          chat: `${req.session.color}님이 퇴장하셨습니다.`,
+        });
       }
-      else {
-          socket.io(roomId).emit('exit', {
-              user: 'system',
-              chat: `${req.session.color}님이 퇴장하셨습니다.`
-          });
-      }
+    });
+    socket.on('chat', (data) => {
+      socket.to(data.room).emit(data);
     });
   });
 };

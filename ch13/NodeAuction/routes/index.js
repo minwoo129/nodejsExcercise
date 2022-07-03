@@ -2,8 +2,9 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const schedule = require('node-schedule');
 
-const { Good, Auction, User } = require('../models');
+const { Good, Auction, User, sequelize } = require('../models');
 const { isLoggedIn, isNotLoggedIn } = require('./middlewares');
 
 const router = express.Router();
@@ -55,12 +56,26 @@ const upload = multer({
 router.post('/good', isLoggedIn, upload.single('img'), async (req, res, next) => {
     try {
         const {name, price} = req.body;
-        await Good.create({
+        const good = await Good.create({
             OwnerId: req.user.id,
             name,
             img: req.file.filename,
             price
         });
+        const end = new Date();
+        end.setDate(end.getDate()+1);
+        schedule.scheduleJob(end, async() => {
+            const success = await Auction.findOne({
+                where: { GoodId: good.id },
+                order: [['bid', 'DESC']]
+            });
+            await Good.update({SoldId: success.UserId}, { where: {id: good.id} });
+            await User.update({
+                money: sequelize.literal(`money - ${success.bid}`)
+            }, {
+                where: { id: success.UserId }
+            });
+        })
         res.redirect('/');
     }
     catch(err) {
@@ -129,6 +144,21 @@ router.post('/good/:id/bid', isLoggedIn, async (req, res, next) => {
     catch(err) {
         console.error(err);
         return next(err);
+    }
+});
+
+router.get('/list', isLoggedIn, async(req, res, next) => {
+    try {
+        const goods = await Good.findAll({
+            where: {SoldId: req.user.id},
+            include: {model: Auction},
+            order: [[{model: Auction}, 'bid', 'DESC']]
+        });
+        res.render('list', {title: '낙찰 목록 - NodeAuction', goods});
+    }
+    catch(e) {
+        console.error(e);
+        next(e);
     }
 });
 
